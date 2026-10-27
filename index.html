@@ -57,8 +57,9 @@ canvas{display:block}
 .tray{display:flex;flex-direction:column;gap:8px;padding-block:4px 12px}
 .strip{display:flex;gap:7px;overflow-x:auto;scroll-snap-type:x proximity;padding-block:2px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .strip::-webkit-scrollbar{display:none}
-.chip{flex:0 0 auto;scroll-snap-align:center;width:42px;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--chip);color:var(--text);font-family:var(--body);font-weight:600;font-size:.95rem;font-variant-numeric:tabular-nums;position:relative;padding:0 0 10px;cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
+.chip{flex:0 0 auto;scroll-snap-align:center;width:42px;height:54px;border-radius:12px;border:1px solid var(--line);background:var(--chip);color:var(--text);font-family:var(--body);font-weight:600;font-size:.95rem;font-variant-numeric:tabular-nums;position:relative;padding:0 0 10px;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.25;cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
 .chip::after{content:"";position:absolute;bottom:7px;left:50%;width:7px;height:7px;margin-left:-3.5px;border:1.5px solid currentColor;border-radius:50%;opacity:.45}
+.chip small{display:block;min-height:.8rem;font-size:.6rem;font-weight:500;opacity:.8;font-variant-numeric:tabular-nums}
 .chip.sq::after{border-radius:1.5px}
 .chip.done::after{background:var(--ochre);border-color:var(--ochre);opacity:1}
 .chip[aria-current="true"]{background:var(--brass);border-color:var(--brass);color:#1b2433}
@@ -77,7 +78,7 @@ canvas{display:block}
 .vial::before{content:"";position:absolute;inset:13px;border-radius:50%;border:1px solid rgba(238,242,234,.28)}
 .bubble{position:absolute;width:12px;height:12px;border-radius:50%;left:50%;top:50%;margin:-6px 0 0 -6px;background:radial-gradient(circle at 35% 35%,#fff,rgba(255,255,255,.35));transition:transform .08s linear}
 
-@media (max-height:600px){h1{font-size:1.2rem}.chip{height:40px}}
+@media (max-height:600px){h1{font-size:1.2rem}.chip{height:48px}}
 @media (prefers-reduced-motion:reduce){.tilt,.bubble{transition:none}}
 </style>
 </head>
@@ -252,7 +253,7 @@ let levelIdx = clamp(parseInt(store.get('sabr2-level') || '0', 10) || 0, 0, LEVE
 let bests = {};
 try { bests = JSON.parse(store.get('sabr2-best') || '{}') || {}; } catch(e) { bests = {}; }
 let L = buildLevel(levelIdx);
-let state = 'play', elapsed = 0, started = false, homeHold = 0, winT = 0, advanceTimer = 0;
+let state = 'play', elapsed = 0, homeHold = 0, winT = 0, advanceTimer = 0;
 const tilt = { x: 0, y: 0 }, sensorT = { x: 0, y: 0 }, touchT = { x: 0, y: 0 }, keyT = { x: 0, y: 0 };
 
 /* ---------- physics ---------- */
@@ -568,6 +569,7 @@ function renderHud(){
   [...$('strip').children].forEach((chip, i) => {
     chip.setAttribute('aria-current', String(i === levelIdx));
     chip.classList.toggle('done', typeof bests[i] === 'number');
+    chip.lastChild.textContent = typeof bests[i] === 'number' ? fmt(bests[i]) : '';
   });
   const cur = $('strip').children[levelIdx];
   if (cur) { try { cur.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); } catch(e){} }
@@ -576,7 +578,7 @@ LEVELS.forEach((d, i) => {
   const chip = document.createElement('button');
   chip.className = 'chip' + (d.shape === 'square' ? ' sq' : '');
   chip.id = 'lv' + i;
-  chip.textContent = AR(i + 1);
+  chip.append(document.createTextNode(AR(i + 1)), document.createElement('small'));
   chip.setAttribute('aria-label', 'المرحلة ' + (i + 1) + ': ' + d.name);
   chip.addEventListener('click', () => loadLevel(i));
   $('strip').appendChild(chip);
@@ -586,7 +588,7 @@ function loadLevel(i){
   clearTimeout(advanceTimer);
   levelIdx = i; store.set('sabr2-level', String(i));
   L = buildLevel(i);
-  state = 'play'; elapsed = 0; started = false; homeHold = 0; winT = 0;
+  state = 'play'; elapsed = 0; homeHold = 0; winT = 0;
   drawStatic(); renderHud();
 }
 
@@ -598,7 +600,7 @@ function win(){
   const last = levelIdx === LEVELS.length - 1;
   setNote(
     (last ? 'أتممت المراحل كلها! ' : 'أتممت المرحلة ' + AR(levelIdx + 1) + ' في ' + fmt(elapsed) + ' ث') +
-    (isBest ? ' · رقم قياسي' : '') + (last ? ' نعود إلى البداية…' : ''), true);
+    (isBest && typeof prev === 'number' ? ' · رقم قياسي جديد' : '') + (last ? ' نعود إلى البداية…' : ''), true);
   renderHud();
   advanceTimer = setTimeout(() => loadLevel(last ? 0 : levelIdx + 1), 1700);
 }
@@ -736,8 +738,7 @@ function frame(now){
   }
 
   if (state === 'play') {
-    if (!started && (Math.hypot(tilt.x, tilt.y) > .06 || L.balls.some(b => Math.hypot(b.vx, b.vy) > .05))) started = true;
-    if (started) elapsed += dt;
+    elapsed += dt;
     let all = true;
     L.balls.forEach((b, i) => {
       const home = b.fall === 0 && inGoal(b, BR * .4);
